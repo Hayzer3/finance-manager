@@ -10,7 +10,8 @@ import {
   HelpCircle, 
   DollarSign,
   Receipt,      // Ícone para Contas/Boletos
-  CreditCard    // Ícone para Cartão/Geral
+  CreditCard,    // Ícone para Cartão/Geral
+  Target
 } from 'lucide-react';
 
 export const INTELLIGENT_CATEGORIES: any = {
@@ -79,6 +80,12 @@ export const INTELLIGENT_CATEGORIES: any = {
     color: 'bg-slate-400', 
     icon: HelpCircle, 
     keywords: [] 
+  },
+  SIMULACAO: { 
+    label: 'Simulação / Desejo', 
+    color: 'bg-yellow-400', 
+    icon: Target, // Use o ícone Target ou Star do lucide-react
+    keywords: ['comprar', 'quero', 'futuro', 'planejado', 'sonho'] 
   },
   RECEITA: { 
     label: 'Receita', 

@@ -3,13 +3,13 @@ import { useEffect, useState, useMemo } from 'react';
 import { financeApi } from './services/api';
 import TransactionModal from '@/app/components/TransactionModal';
 import { INTELLIGENT_CATEGORIES } from '@/app/constants/categories';
-import { Pencil, Trash2, Plus, Wallet, ChevronLeft, ChevronRight, TrendingDown, TrendingUp, CalendarDays, Target } from 'lucide-react';
+import { Pencil, Trash2, Plus, Wallet, ChevronLeft, ChevronRight, TrendingDown, TrendingUp, CalendarDays, Target, Sparkles } from 'lucide-react';
 
 type Transacao = {
   id: number;
   descricao: string;
   valor: number;
-  tipo: 'RECEITA' | 'DESPESA';
+  tipo: 'RECEITA' | 'DESPESA' | 'PLANEJADO'; // Adicionado PLANEJADO
   categoria: string;
   data: string;
 };
@@ -53,11 +53,15 @@ export default function Home() {
       return mesAnoTransacao === mesAnoAtual;
     });
 
-    // Cálculos Financeiros
+    // Cálculos Financeiros (Agora incluindo o PLANEJADO)
     const receitas = tMes.filter(t => t.tipo === 'RECEITA').reduce((acc, t) => acc + t.valor, 0);
     const despesas = tMes.filter(t => t.tipo === 'DESPESA').reduce((acc, t) => acc + t.valor, 0);
+    const planejado = tMes.filter(t => t.tipo === 'PLANEJADO').reduce((acc, t) => acc + t.valor, 0);
     
-    // Comparação com o mês anterior
+    const saldoAtual = receitas - despesas;
+    const saldoAposCompras = saldoAtual - planejado;
+    
+    // Comparação com o mês anterior (Mantida intacta!)
     const dataPassada = new Date(dataFoco);
     dataPassada.setMonth(dataPassada.getMonth() - 1);
     const mesAnoPassado = dataPassada.toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' });
@@ -69,7 +73,7 @@ export default function Home() {
 
     const diferenca = despesasPassadas > 0 ? ((despesas - despesasPassadas) / despesasPassadas) * 100 : 0;
 
-    // Agrupamento por Categoria
+    // Agrupamento por Categoria (Somente gastos reais, desejos não entram no gráfico)
     const gPorCat = tMes
       .filter(t => t.tipo === 'DESPESA')
       .reduce((acc: any, t: Transacao) => {
@@ -78,7 +82,7 @@ export default function Home() {
         return acc;
       }, {});
 
-    return { tMes, receitas, despesas, saldo: receitas - despesas, nomeMes, diferenca, gPorCat };
+    return { tMes, receitas, despesas, planejado, saldoAtual, saldoAposCompras, nomeMes, diferenca, gPorCat };
   }, [transacoes, dataFoco]);
 
   const handleDelete = async (id: number) => {
@@ -108,12 +112,12 @@ export default function Home() {
           <div className="lg:col-span-5 space-y-6">
             <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-              <p className="text-xs opacity-50 uppercase font-black mb-2">Saldo do Mês</p>
+              <p className="text-xs opacity-50 uppercase font-black mb-2">Saldo Real do Mês</p>
               <h2 className="text-5xl font-bold tracking-tighter">
-                R$ {dashboard.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {dashboard.saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h2>
               
-              <div className="mt-6 flex items-center gap-2 text-[11px] font-bold">
+              <div className="mt-4 flex items-center gap-2 text-[11px] font-bold">
                 {dashboard.diferenca > 0 ? (
                   <span className="flex items-center gap-1 text-red-400 bg-red-400/10 px-3 py-1 rounded-full">
                     <TrendingUp size={14}/> {dashboard.diferenca.toFixed(1)}% a mais que mês passado
@@ -124,16 +128,33 @@ export default function Home() {
                   </span>
                 )}
               </div>
+
+              {/* MÁGICA DA SIMULAÇÃO: Só aparece se tiver itens planejados */}
+              {dashboard.planejado > 0 && (
+                <div className="mt-6 p-4 bg-yellow-400/10 border border-yellow-400/20 rounded-2xl">
+                  <p className="text-[10px] text-yellow-400 font-black uppercase flex items-center gap-2 mb-1">
+                    <Sparkles size={12}/> Se comprar os desejos:
+                  </p>
+                  <p className="text-2xl font-bold text-yellow-500">
+                    R$ {dashboard.saldoAposCompras.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+              )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+            {/* Virou grid de 3 para acomodar os Desejos! */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-white p-4 lg:p-5 rounded-[2rem] shadow-sm border border-slate-100">
                 <p className="text-[10px] text-green-600 font-black uppercase mb-1">Entradas</p>
-                <p className="text-xl font-bold text-slate-800">R$ {dashboard.receitas.toLocaleString('pt-BR')}</p>
+                <p className="text-lg font-bold text-slate-800">R$ {dashboard.receitas.toFixed(0)}</p>
               </div>
-              <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+              <div className="bg-white p-4 lg:p-5 rounded-[2rem] shadow-sm border border-slate-100">
                 <p className="text-[10px] text-red-600 font-black uppercase mb-1">Saídas</p>
-                <p className="text-xl font-bold text-slate-800">R$ {dashboard.despesas.toLocaleString('pt-BR')}</p>
+                <p className="text-lg font-bold text-slate-800">R$ {dashboard.despesas.toFixed(0)}</p>
+              </div>
+              <div className="bg-white p-4 lg:p-5 rounded-[2rem] shadow-sm border border-yellow-100 bg-yellow-50/30">
+                <p className="text-[10px] text-yellow-600 font-black uppercase mb-1">Desejos</p>
+                <p className="text-lg font-bold text-slate-800">R$ {dashboard.planejado.toFixed(0)}</p>
               </div>
             </div>
 
@@ -144,7 +165,7 @@ export default function Home() {
               </h3>
               <div className="space-y-6">
                 {Object.keys(dashboard.gPorCat).length === 0 ? (
-                  <p className="text-sm text-slate-400 text-center py-4 italic">Sem gastos em {dashboard.nomeMes}.</p>
+                  <p className="text-sm text-slate-400 text-center py-4 italic">Sem gastos reais registrados.</p>
                 ) : (
                   Object.entries(dashboard.gPorCat)
                     .sort(([, a]: any, [, b]: any) => b - a)
@@ -181,31 +202,35 @@ export default function Home() {
                   Nenhuma movimentação em {dashboard.nomeMes}.
                 </div>
               ) : (
-                dashboard.tMes.sort((a, b) => b.id - a.id).map((t: Transacao) => {
+                // AGORA ORDENA POR DATA, DEPOIS POR ID
+                dashboard.tMes.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime() || b.id - a.id).map((t: Transacao) => {
+                  const isPlanejado = t.tipo === 'PLANEJADO';
                   const categoriaChave = t.tipo === 'RECEITA' ? 'RECEITA' : t.categoria;
                   const cat = INTELLIGENT_CATEGORIES[categoriaChave] || INTELLIGENT_CATEGORIES.OUTROS;
-                  const Icon = cat.icon;
+                  
+                  // Se for planejado, coloca o ícone de estrelinha, senão usa o padrão
+                  const Icon = isPlanejado ? Sparkles : cat.icon;
 
                   return (
-                    <div key={t.id} className="bg-white p-4 rounded-3xl flex justify-between items-center border border-slate-50 hover:shadow-md transition-all group">
+                    <div key={t.id} className={`bg-white p-4 rounded-3xl flex justify-between items-center border transition-all group hover:shadow-md ${isPlanejado ? 'border-yellow-200 bg-yellow-50/40' : 'border-slate-50'}`}>
                       <div className="flex items-center gap-4">
-                        <div className={`p-3 rounded-2xl ${cat.color} bg-opacity-10 ${cat.color.replace('bg-', 'text-')}`}>
+                        <div className={`p-3 rounded-2xl ${isPlanejado ? 'bg-yellow-400 text-white shadow-sm' : cat.color + ' bg-opacity-10 ' + cat.color.replace('bg-', 'text-')}`}>
                           <Icon size={24}/>
                         </div>
                         <div>
                           <p className="font-bold text-slate-800 text-sm">{t.descricao}</p>
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                            {t.tipo === 'RECEITA' ? 'Entrada' : cat.label}
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
+                            {/* AGORA MOSTRA A DATA DO LANÇAMENTO AQUI! */}
+                            {new Date(t.data).toLocaleDateString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit' })} • {t.tipo === 'RECEITA' ? 'Entrada' : isPlanejado ? 'Desejo' : cat.label}
                           </p>
                         </div>
                       </div>
                       
                       <div className="flex items-center gap-6">
-                        <p className={`font-black text-sm ${t.tipo === 'RECEITA' ? 'text-green-600' : 'text-red-600'}`}>
-                          {t.tipo === 'RECEITA' ? '+' : '-'} R$ {t.valor.toFixed(2)}
+                        <p className={`font-black text-sm ${isPlanejado ? 'text-yellow-500' : (t.tipo === 'RECEITA' ? 'text-green-600' : 'text-red-600')}`}>
+                          {t.tipo === 'RECEITA' ? '+' : (isPlanejado ? '' : '-')} R$ {t.valor.toFixed(2)}
                         </p>
                         
-                        {/* BOTÕES DE EDITAR E EXCLUIR DE VOLTA! */}
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
                           <button 
                             onClick={() => { setEditItem(t); setIsModalOpen(true); }} 
