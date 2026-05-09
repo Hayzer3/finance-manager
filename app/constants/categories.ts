@@ -11,7 +11,9 @@ import {
   DollarSign,
   Receipt,      // Ícone para Contas/Boletos
   CreditCard,    // Ícone para Cartão/Geral
-  Target
+  Target,
+  Shirt,
+  Scissors
 } from 'lucide-react';
 
 export const INTELLIGENT_CATEGORIES: any = {
@@ -50,6 +52,18 @@ export const INTELLIGENT_CATEGORIES: any = {
     color: 'bg-purple-500', 
     icon: Tv, 
     keywords: ['netflix', 'spotify', 'cinema', 'show', 'steam', 'psn', 'xbox', 'viagem', 'hamburguer mc', 'cerveja', 'festa'] 
+  },
+  ROUPAS: { 
+    label: 'Roupas & Calçados', 
+    color: 'bg-fuchsia-500', 
+    icon: Shirt, 
+    keywords: ['roupa', 'camisa', 'calça', 'tenis', 'sapato', 'loja', 'renner', 'cea', 'zara', 'shein', 'shopee roupa', 'vestido'] 
+  },
+  BELEZA: { 
+    label: 'Beleza & Cosméticos', 
+    color: 'bg-pink-400', 
+    icon: Scissors, 
+    keywords: ['cosmetico', 'maquiagem', 'cabelo', 'salao', 'perfume', 'boticario', 'natura', 'sephora', 'skincare', 'unha', 'manicure', 'barbearia'] 
   },
   SAUDE: { 
     label: 'Saúde', 

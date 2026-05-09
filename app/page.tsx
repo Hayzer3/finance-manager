@@ -9,7 +9,7 @@ type Transacao = {
   id: number;
   descricao: string;
   valor: number;
-  tipo: 'RECEITA' | 'DESPESA' | 'PLANEJADO'; // Adicionado PLANEJADO
+  tipo: 'RECEITA' | 'DESPESA';
   categoria: string;
   data: string;
 };
@@ -53,29 +53,37 @@ export default function Home() {
       return mesAnoTransacao === mesAnoAtual;
     });
 
-    // Cálculos Financeiros (Agora incluindo o PLANEJADO)
+    // Cálculos Financeiros
     const receitas = tMes.filter(t => t.tipo === 'RECEITA').reduce((acc, t) => acc + t.valor, 0);
-    const despesas = tMes.filter(t => t.tipo === 'DESPESA').reduce((acc, t) => acc + t.valor, 0);
-    const planejado = tMes.filter(t => t.tipo === 'PLANEJADO').reduce((acc, t) => acc + t.valor, 0);
+    
+    // Despesas Reais (exclui o que for PLANEJADO na categoria)
+    const despesas = tMes
+      .filter(t => t.tipo === 'DESPESA' && t.categoria !== 'PLANEJADO')
+      .reduce((acc, t) => acc + t.valor, 0);
+      
+    // Apenas itens de SIMULAÇÃO/PLANEJADO
+    const planejado = tMes
+      .filter(t => t.categoria === 'PLANEJADO')
+      .reduce((acc, t) => acc + t.valor, 0);
     
     const saldoAtual = receitas - despesas;
     const saldoAposCompras = saldoAtual - planejado;
     
-    // Comparação com o mês anterior (Mantida intacta!)
+    // Comparação com o mês anterior
     const dataPassada = new Date(dataFoco);
     dataPassada.setMonth(dataPassada.getMonth() - 1);
     const mesAnoPassado = dataPassada.toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' });
 
     const despesasPassadas = transacoes
-      .filter((t: Transacao) => t.tipo === 'DESPESA' && 
+      .filter((t: Transacao) => t.tipo === 'DESPESA' && t.categoria !== 'PLANEJADO' && 
         new Date(t.data).toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric', timeZone: 'UTC' }) === mesAnoPassado)
       .reduce((acc, t) => acc + t.valor, 0);
 
     const diferenca = despesasPassadas > 0 ? ((despesas - despesasPassadas) / despesasPassadas) * 100 : 0;
 
-    // Agrupamento por Categoria (Somente gastos reais, desejos não entram no gráfico)
+    // Agrupamento por Categoria (para os gráficos)
     const gPorCat = tMes
-      .filter(t => t.tipo === 'DESPESA')
+      .filter(t => t.tipo === 'DESPESA' && t.categoria !== 'PLANEJADO')
       .reduce((acc: any, t: Transacao) => {
         const cat = t.categoria || 'OUTROS';
         acc[cat] = (acc[cat] || 0) + t.valor;
@@ -110,6 +118,8 @@ export default function Home() {
           
           {/* LADO ESQUERDO: DASHBOARD */}
           <div className="lg:col-span-5 space-y-6">
+            
+            {/* CARD PRETO DE SALDO */}
             <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 rounded-full -mr-16 -mt-16 blur-3xl"></div>
               <p className="text-xs opacity-50 uppercase font-black mb-2">Saldo Real do Mês</p>
@@ -117,6 +127,7 @@ export default function Home() {
                 R$ {dashboard.saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h2>
               
+              {/* TAG DE COMPARAÇÃO COM MÊS PASSADO */}
               <div className="mt-4 flex items-center gap-2 text-[11px] font-bold">
                 {dashboard.diferenca > 0 ? (
                   <span className="flex items-center gap-1 text-red-400 bg-red-400/10 px-3 py-1 rounded-full">
@@ -129,7 +140,7 @@ export default function Home() {
                 )}
               </div>
 
-              {/* MÁGICA DA SIMULAÇÃO: Só aparece se tiver itens planejados */}
+              {/* CARD AMARELO DE SIMULAÇÃO (SÓ APARECE SE HOUVER DESEJOS) */}
               {dashboard.planejado > 0 && (
                 <div className="mt-6 p-4 bg-yellow-400/10 border border-yellow-400/20 rounded-2xl">
                   <p className="text-[10px] text-yellow-400 font-black uppercase flex items-center gap-2 mb-1">
@@ -142,7 +153,7 @@ export default function Home() {
               )}
             </div>
 
-            {/* Virou grid de 3 para acomodar os Desejos! */}
+            {/* MINI CARDS DE ENTRADAS, SAÍDAS E DESEJOS */}
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-white p-4 lg:p-5 rounded-[2rem] shadow-sm border border-slate-100">
                 <p className="text-[10px] text-green-600 font-black uppercase mb-1">Entradas</p>
@@ -177,7 +188,9 @@ export default function Home() {
                         <div key={key}>
                           <div className="flex justify-between items-center mb-2">
                             <div className="flex items-center gap-3">
-                              <div className={`p-2 rounded-lg ${catInfo.color} text-white`}><Icon size={16}/></div>
+                              <div className={`p-2 rounded-lg ${catInfo.color} text-white`}>
+                                <Icon size={16}/>
+                              </div>
                               <span className="text-xs font-bold text-slate-500 uppercase">{catInfo.label}</span>
                             </div>
                             <span className="text-sm font-black text-slate-800">R$ {Number(valor).toFixed(2)}</span>
@@ -202,17 +215,20 @@ export default function Home() {
                   Nenhuma movimentação em {dashboard.nomeMes}.
                 </div>
               ) : (
-                // AGORA ORDENA POR DATA, DEPOIS POR ID
+                // ORDENAÇÃO: Por data mais recente primeiro
                 dashboard.tMes.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime() || b.id - a.id).map((t: Transacao) => {
-                  const isPlanejado = t.tipo === 'PLANEJADO';
+                  
+                  // Lógica para definir se é Planejado, Receita ou Categoria Normal
+                  const isPlanejado = t.categoria === 'PLANEJADO';
                   const categoriaChave = t.tipo === 'RECEITA' ? 'RECEITA' : t.categoria;
                   const cat = INTELLIGENT_CATEGORIES[categoriaChave] || INTELLIGENT_CATEGORIES.OUTROS;
                   
-                  // Se for planejado, coloca o ícone de estrelinha, senão usa o padrão
+                  // Se for planejado, coloca o ícone de estrelinha
                   const Icon = isPlanejado ? Sparkles : cat.icon;
 
                   return (
                     <div key={t.id} className={`bg-white p-4 rounded-3xl flex justify-between items-center border transition-all group hover:shadow-md ${isPlanejado ? 'border-yellow-200 bg-yellow-50/40' : 'border-slate-50'}`}>
+                      
                       <div className="flex items-center gap-4">
                         <div className={`p-3 rounded-2xl ${isPlanejado ? 'bg-yellow-400 text-white shadow-sm' : cat.color + ' bg-opacity-10 ' + cat.color.replace('bg-', 'text-')}`}>
                           <Icon size={24}/>
@@ -220,7 +236,6 @@ export default function Home() {
                         <div>
                           <p className="font-bold text-slate-800 text-sm">{t.descricao}</p>
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
-                            {/* AGORA MOSTRA A DATA DO LANÇAMENTO AQUI! */}
                             {new Date(t.data).toLocaleDateString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit' })} • {t.tipo === 'RECEITA' ? 'Entrada' : isPlanejado ? 'Desejo' : cat.label}
                           </p>
                         </div>
@@ -246,6 +261,7 @@ export default function Home() {
                           </button>
                         </div>
                       </div>
+
                     </div>
                   );
                 })
